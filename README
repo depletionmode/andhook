@@ -4,6 +4,10 @@ by David Kaplan, 2010 (david@2of1.org)
 -----
 
 -----
+Tested on Android 2.3.6, kernel 2.6.32
+-----
+
+-----
 Provides a MobileSubstrate-like interface for Android
 Happy hacking!
 -----
