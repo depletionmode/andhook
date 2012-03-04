@@ -23,9 +23,9 @@ void *__memcpy(void *d, void *s, int n)
 
 int __mprotect(void * a, int n, int p)
 {
-    __asm__("mov R12, #0x4a");
-    __asm__("svc 0x80");
-    __asm__("bx LR");
+    __asm__("mov R7, #0x7d");
+    __asm__("svc 0x00");
+    __asm__("bxpl LR");
 }
 
 void __load_lib(char *ahp_path)
