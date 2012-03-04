@@ -1,0 +1,21 @@
+-----
+andhook - Android Hooking Framework
+by David Kaplan, 2010 (david@2of1.org)
+-----
+
+-----
+Provides a MobileSubstrate-like interface for Android
+Happy hacking!
+-----
+
+-----
+usage():
+
+Create a shared library with your code.
+
+This library must include an __init() function with the following signature:
+    void __init(void);
+
+You set up your hooks within __init().
+You can use the use and_hook() function to perform the actual hooking.
+-----
