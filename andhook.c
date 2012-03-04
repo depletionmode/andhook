@@ -28,30 +28,6 @@ int __mprotect(void * a, int n, int p)
     __asm__("bx LR");
 }
 
-void __hook(void *orig_fcn, void* new_fcn, void **orig_fcn_ptr)
-{
-    unsigned char *hook = malloc( sysconf( _SC_PAGESIZE ) );
-
-    __memcpy( hook, (unsigned char *)orig_fcn, 8 );    /* save 1st 8 bytes of orig fcn */
-    *(int *)(hook + 8) = 0xe51ff004;                   /* ldr pc, [pc, #-4] */
-    *(int *)(hook + 12) = (int)orig_fcn + 8;           /* ptr to orig fcn offset */
-
-    if( __mprotect( (void *)(int)hook - ((int)hook % sysconf( _SC_PAGESIZE )),
-                      sysconf( _SC_PAGESIZE ),
-                      PROT_EXEC|PROT_READ ) == 0 ) {
-        if( __mprotect( (void *)((int)orig_fcn - ((int)orig_fcn % sysconf( _SC_PAGESIZE ))),
-                        (int)orig_fcn % sysconf( _SC_PAGESIZE ) + 8,
-                        PROT_READ|PROT_WRITE ) == 0 ) {
-            *((unsigned int*)orig_fcn) = 0xe51ff004;
-            *((unsigned int*)((int)orig_fcn + 4)) = (int)new_fcn;
-            if( __mprotect( (void *)((int)orig_fcn - ((int)orig_fcn % sysconf( _SC_PAGESIZE ))),
-                            (int)orig_fcn % sysconf( _SC_PAGESIZE ) + 8,
-                            PROT_READ|PROT_EXEC ) == 0 )
-                                *orig_fcn_ptr = (void*)hook;
-        }
-    }
-}
-
 void __load_lib(char *ahp_path)
 {
     void *handle;
@@ -115,6 +91,30 @@ void __init_framework()
 
             fclose( f_ahp );
             }
+        }
+    }
+}
+
+void and_hook(void *orig_fcn, void* new_fcn, void **orig_fcn_ptr)
+{
+    unsigned char *hook = malloc( sysconf( _SC_PAGESIZE ) );
+
+    __memcpy( hook, (unsigned char *)orig_fcn, 8 );    /* save 1st 8 bytes of orig fcn */
+    *(int *)(hook + 8) = 0xe51ff004;                   /* ldr pc, [pc, #-4] */
+    *(int *)(hook + 12) = (int)orig_fcn + 8;           /* ptr to orig fcn offset */
+
+    if( __mprotect( (void *)(int)hook - ((int)hook % sysconf( _SC_PAGESIZE )),
+                      sysconf( _SC_PAGESIZE ),
+                      PROT_EXEC|PROT_READ ) == 0 ) {
+        if( __mprotect( (void *)((int)orig_fcn - ((int)orig_fcn % sysconf( _SC_PAGESIZE ))),
+                        (int)orig_fcn % sysconf( _SC_PAGESIZE ) + 8,
+                        PROT_READ|PROT_WRITE ) == 0 ) {
+            *((unsigned int*)orig_fcn) = 0xe51ff004;
+            *((unsigned int*)((int)orig_fcn + 4)) = (int)new_fcn;
+            if( __mprotect( (void *)((int)orig_fcn - ((int)orig_fcn % sysconf( _SC_PAGESIZE ))),
+                            (int)orig_fcn % sysconf( _SC_PAGESIZE ) + 8,
+                            PROT_READ|PROT_EXEC ) == 0 )
+                                *orig_fcn_ptr = (void*)hook;
         }
     }
 }
