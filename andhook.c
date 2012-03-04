@@ -21,7 +21,7 @@ void *__memcpy(void *d, void *s, int n)
     return d;
 }
 
-int __mprotect_no_err_set(void * a, int n, int p)
+int __mprotect_no_errno_set(void * a, int n, int p)
 {
     __asm__("mov R7, #0x7d");
     __asm__("svc 0x00");
@@ -103,18 +103,18 @@ void and_hook(void *orig_fcn, void* new_fcn, void **orig_fcn_ptr)
     *(int *)(hook + 8) = 0xe51ff004;                   /* ldr pc, [pc, #-4] */
     *(int *)(hook + 12) = (int)orig_fcn + 8;           /* ptr to orig fcn offset */
 
-    if( __mprotect_no_err_set( (void *)(int)hook - ((int)hook % sysconf( _SC_PAGESIZE )),
-                               sysconf( _SC_PAGESIZE ),
-                               PROT_EXEC|PROT_READ ) == 0 ) {
-        if( __mprotect_no_err_set( (void *)((int)orig_fcn - ((int)orig_fcn % sysconf( _SC_PAGESIZE ))),
-                                   (int)orig_fcn % sysconf( _SC_PAGESIZE ) + 8,
-                                   PROT_READ|PROT_WRITE ) == 0 ) {
+    if( __mprotect_no_errno_set( (void *)(int)hook - ((int)hook % sysconf( _SC_PAGESIZE )),
+                                 sysconf( _SC_PAGESIZE ),
+                                 PROT_EXEC|PROT_READ ) == 0 ) {
+        if( __mprotect_no_errno_set( (void *)((int)orig_fcn - ((int)orig_fcn % sysconf( _SC_PAGESIZE ))),
+                                     (int)orig_fcn % sysconf( _SC_PAGESIZE ) + 8,
+                                     PROT_READ|PROT_WRITE ) == 0 ) {
             *((unsigned int*)orig_fcn) = 0xe51ff004;
             *((unsigned int*)((int)orig_fcn + 4)) = (int)new_fcn;
 
-            if( __mprotect_no_err_set( (void *)((int)orig_fcn - ((int)orig_fcn % sysconf( _SC_PAGESIZE ))),
-                                       (int)orig_fcn % sysconf( _SC_PAGESIZE ) + 8,
-                                       PROT_READ|PROT_EXEC ) == 0 ) {
+            if( __mprotect_no_errno_set( (void *)((int)orig_fcn - ((int)orig_fcn % sysconf( _SC_PAGESIZE ))),
+                                         (int)orig_fcn % sysconf( _SC_PAGESIZE ) + 8,
+                                         PROT_READ|PROT_EXEC ) == 0 ) {
                 *orig_fcn_ptr = (void*)hook;
             }
         }
