@@ -9,8 +9,6 @@
 //#define LIB_PATH "/system/lib/"
 #define LIB_PATH "./"
 
-extern char *program_invocation_name;
-
 void *__memcpy(void *d, void *s, int n)
 {
     int i;
@@ -58,6 +56,37 @@ void __load_lib(char *ahp_path)
     free( lib_name );
 }
 
+char *__get_exec_name()
+{
+    static char exec_name[1024];
+    char path[500];
+    int pid, n;
+
+    pid = getpid();
+
+    snprintf( path, sizeof( path ), "/proc/%d/exe", pid );
+
+    /* read symlink */
+    n = readlink( path, exec_name, sizeof( exec_name ) - 1 );
+    exec_name[n] = '\0';
+    strcpy( exec_name, strrchr( exec_name, '/' ) + 1 );
+
+    if( strcmp( exec_name, "app_process" ) ) {
+        FILE *f;
+
+        snprintf( path, sizeof( path ), "/proc/%d/cmdline", pid );
+
+        if( ( f = fopen( path, "r" ) ) ) {
+            n = fread( exec_name, 1, sizeof( exec_name ) - 1, f );
+            exec_name[n] = '\0';
+
+            fclose( f );
+        }
+    }
+
+    return exec_name;
+}
+
 __attribute__((constructor))
 void __init_framework()
 {
@@ -65,9 +94,9 @@ void __init_framework()
     struct dirent *dirp;
     int i;
     struct ahp_info_t *ahp_info_list = NULL;
-    char *exec_name = strrchr( program_invocation_name, '/' );
-
-    if( !exec_name ) exec_name = program_invocation_name;
+    char *exec_name = strrchr( __get_exec_name(), '/' );
+    
+    if( !exec_name ) exec_name = __get_exec_name();
     else exec_name++;
 
     printf( "andhook: init (exec_name=%s)\n", exec_name );
@@ -146,5 +175,3 @@ void and_hook(void *orig_fcn, void* new_fcn, void **orig_fcn_ptr)
     }
 #endif
 }
-
-int main() { return 0; }
