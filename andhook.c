@@ -6,8 +6,8 @@
 #include <sys/mman.h>
 #include <unistd.h>
 
-//#define LIB_PATH "/system/lib/"
-#define LIB_PATH "./"
+#define LIB_PATH "/system/lib/"
+//#define LIB_PATH "./"
 
 void *__memcpy(void *d, void *s, int n)
 {
