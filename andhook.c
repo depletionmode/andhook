@@ -1,7 +1,7 @@
 #include <stdio.h>
 #include <string.h>
 #include <malloc.h>
-#include <glob.h>
+#include <dirent.h>
 #include <dlfcn.h>
 #include <sys/mman.h>
 #include <unistd.h>
@@ -36,11 +36,14 @@ void __load_lib(char *ahp_path)
 {
     void *handle;
     char *suffix;
-    char *lib_path = strdup( ahp_path );
+    char lib_path[500];
+    char *lib_name = strdup( ahp_path );
 
     /* convert to lib path */
-    suffix = strrchr( lib_path, '.' );
+    suffix = strrchr( lib_name, '.' );
     strcpy( suffix, ".so" );
+
+    snprintf( lib_path, sizeof( lib_path ), "%s%s", LIB_PATH, lib_name );
 
     printf( "andhook: loading lib: %s\n", lib_path );
 
@@ -52,14 +55,15 @@ void __load_lib(char *ahp_path)
         dlclose( handle );
     }
 
-    free( lib_path );
+    free( lib_name );
 }
 
 __attribute__((constructor))
 void __init_framework()
 {
+    DIR *dp;
+    struct dirent *dirp;
     int i;
-    glob_t glob_data;
     struct ahp_info_t *ahp_info_list = NULL;
     char *exec_name = strrchr( program_invocation_name, '/' );
 
@@ -69,13 +73,15 @@ void __init_framework()
     printf( "andhook: init (exec_name=%s)\n", exec_name );
 
     /* parse ahp files */
-    if( glob( LIB_PATH "*.ahp", 0, NULL, &glob_data ) == 0 ) {
-        for( i = 0; i < glob_data.gl_pathc; i++ ) {
+    if( ( dp = opendir( LIB_PATH ) ) ) {
+        while( ( dirp = readdir( dp ) ) ) {
             char buf[1024];
             int mode;
-            FILE *f_ahp = fopen( glob_data.gl_pathv[i], "r" );
+            FILE *f_ahp;
 
-            if( f_ahp ) {
+            if( !strstr( dirp->d_name, ".ahp" ) ) continue;
+
+            if( ( f_ahp = fopen( dirp->d_name, "r" ) ) ) {
             if( fgets( buf, sizeof(buf), f_ahp ) ) {
                 if( memcmp( buf, "include=", 8 ) == 0 )
                     mode = 1;     /* include */
@@ -95,10 +101,10 @@ void __init_framework()
                         tok = strtok( NULL, "," );
                     }
 
-                    printf( "andhook: parsed profile: %s (found=%d, mode=%s)\n", glob_data.gl_pathv[i], found, mode ? "include" : "exclude" );
+                    printf( "andhook: parsed profile: %s (found=%d, mode=%s)\n", dirp->d_name, found, mode ? "include" : "exclude" );
 
-                    if( found ) { if( mode /* include */ ) __load_lib(glob_data.gl_pathv[i]); }
-                    else { if( !mode /* exclude */ ) __load_lib(glob_data.gl_pathv[i]); }
+                    if( found ) { if( mode /* include */ ) __load_lib(dirp->d_name); }
+                    else { if( !mode /* exclude */ ) __load_lib(dirp->d_name); }
                 }
 
             fclose( f_ahp );
@@ -110,6 +116,11 @@ void __init_framework()
 
 void and_hook(void *orig_fcn, void* new_fcn, void **orig_fcn_ptr)
 {
+    printf( "andhook: placing hook (orig_fcn=%p, new_fcn=%p, orig_fcn_ptr=%p)\n", 
+            orig_fcn,
+            new_fcn,
+            orig_fcn_ptr );
+
 #ifdef __arm__
     unsigned char *hook = malloc( sysconf( _SC_PAGESIZE ) );
 
