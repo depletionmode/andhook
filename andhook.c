@@ -7,7 +7,7 @@
 #include <unistd.h>
 
 //#define LIB_PATH "/system/lib/"
-#define LIB_PATH ""
+#define LIB_PATH "./"
 
 extern char *program_invocation_name;
 
@@ -23,9 +23,13 @@ void *__memcpy(void *d, void *s, int n)
 
 int __mprotect_no_errno_set(void * a, int n, int p)
 {
+#ifdef __arm__
     __asm__("mov R7, #0x7d");
     __asm__("svc 0x00");
     __asm__("bxpl LR");
+#else
+    return mprotect(a, n, p);
+#endif
 }
 
 void __load_lib(char *ahp_path)
@@ -38,8 +42,11 @@ void __load_lib(char *ahp_path)
     suffix = strrchr( lib_path, '.' );
     strcpy( suffix, ".so" );
 
+    printf( "andhook: loading lib: %s\n", lib_path );
+
     /* open lib & exec __init() */
     if( ( handle = dlopen( lib_path, RTLD_NOW ) ) ) {
+        printf( "andhook: lib loaded\n" );
         void (*p)() = dlsym( handle, "__init" );
         p();
         dlclose( handle );
@@ -59,6 +66,8 @@ void __init_framework()
     if( !exec_name ) exec_name = program_invocation_name;
     else exec_name++;
 
+    printf( "andhook: init (exec_name=%s)\n", exec_name );
+
     /* parse ahp files */
     if( glob( LIB_PATH "*.ahp", 0, NULL, &glob_data ) == 0 ) {
         for( i = 0; i < glob_data.gl_pathc; i++ ) {
@@ -66,6 +75,7 @@ void __init_framework()
             int mode;
             FILE *f_ahp = fopen( glob_data.gl_pathv[i], "r" );
 
+            if( f_ahp ) {
             if( fgets( buf, sizeof(buf), f_ahp ) ) {
                 if( memcmp( buf, "include=", 8 ) == 0 )
                     mode = 1;     /* include */
@@ -85,11 +95,14 @@ void __init_framework()
                         tok = strtok( NULL, "," );
                     }
 
+                    printf( "andhook: parsed profile: %s (found=%d, mode=%s)\n", glob_data.gl_pathv[i], found, mode ? "include" : "exclude" );
+
                     if( found ) { if( mode /* include */ ) __load_lib(glob_data.gl_pathv[i]); }
                     else { if( !mode /* exclude */ ) __load_lib(glob_data.gl_pathv[i]); }
                 }
 
             fclose( f_ahp );
+            }
             }
         }
     }
@@ -97,6 +110,7 @@ void __init_framework()
 
 void and_hook(void *orig_fcn, void* new_fcn, void **orig_fcn_ptr)
 {
+#ifdef __arm__
     unsigned char *hook = malloc( sysconf( _SC_PAGESIZE ) );
 
     __memcpy( hook, (unsigned char *)orig_fcn, 8 );    /* save 1st 8 bytes of orig fcn */
@@ -119,6 +133,7 @@ void and_hook(void *orig_fcn, void* new_fcn, void **orig_fcn_ptr)
             }
         }
     }
+#endif
 }
 
 int main() { return 0; }
