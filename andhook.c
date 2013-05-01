@@ -150,7 +150,7 @@ void and_hook(void *orig_fcn, void* new_fcn, void **orig_fcn_ptr)
             orig_fcn_ptr );
 
 #ifdef __arm__
-    int thumb = orig_fcn & 1;    /* check for thumb instruction */
+    int thumb = orig_fcn & 1;    /* check for thumb mode */
     if (thumb) orig_fcn = (void *)((int)orig_fcn - 1);
 	
     unsigned char *trampoline = malloc( sysconf( _SC_PAGESIZE ) );
