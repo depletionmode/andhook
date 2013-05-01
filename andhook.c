@@ -167,10 +167,10 @@ void and_hook(void *orig_fcn, void* new_fcn, void **orig_fcn_ptr)
     *(int *)(trampoline + 8) = thumb ? 0xf000f85f : 0xe51ff004;     /* ldr pc, [pc, #-4] */
     *(int *)(trampoline + 12) = (int)orig_fcn + ( thumb ? 9 : 8 );  /* ptr to orig fcn offset */
 
-	void *aligned_trampoline = (void *)(int)trampoline -
+    void *aligned_trampoline = (void *)(int)trampoline -
                                ((int)trampoline % sysconf( _SC_PAGESIZE ));
 						 
-	void *aligned_orig_fcn = (void *)((int)orig_fcn -
+    void *aligned_orig_fcn = (void *)((int)orig_fcn -
                              ((int)orig_fcn % sysconf( _SC_PAGESIZE )));
 	
     if( __mprotect_no_errno_set( aligned_trampoline,
