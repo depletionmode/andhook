@@ -163,7 +163,7 @@ void and_hook(void *orig_fcn, void* new_fcn, void **orig_fcn_ptr)
     int thumb = orig_fcn & 1;    /* check for thumb mode */
     if (thumb) orig_fcn = (void *)((int)orig_fcn - 1);
 	
-	int pagesize = sysconf( _SC_PAGESIZE );
+    int pagesize = sysconf( _SC_PAGESIZE );
 	
     unsigned char *trampoline = calloc( 1, sysconf( _SC_PAGESIZE ) );
 
