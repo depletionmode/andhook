@@ -163,7 +163,7 @@ void and_hook(void *orig_fcn, void* new_fcn, void **orig_fcn_ptr)
 	
 	int pagesize = sysconf( _SC_PAGESIZE );
 	
-    unsigned char *trampoline = malloc( sysconf( _SC_PAGESIZE ) );
+    unsigned char *trampoline = calloc( 1, sysconf( _SC_PAGESIZE ) );
 
     __memcpy( trampoline, (unsigned char *)orig_fcn, 8 );           /* save 1st 8 bytes of orig fcn */
     *(int *)(trampoline + 8) = thumb ? 0xf000f85f : 0xe51ff004;     /* ldr pc, [pc, #-4] */
