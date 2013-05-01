@@ -155,6 +155,8 @@ void and_hook(void *orig_fcn, void* new_fcn, void **orig_fcn_ptr)
             new_fcn,
             orig_fcn_ptr );
 
+    *orig_fcn_ptr = NULL;
+	
 #ifdef __arm__
     int thumb = orig_fcn & 1;    /* check for thumb mode */
     if (thumb) orig_fcn = (void *)((int)orig_fcn - 1);
@@ -165,21 +167,37 @@ void and_hook(void *orig_fcn, void* new_fcn, void **orig_fcn_ptr)
     *(int *)(trampoline + 8) = thumb ? 0xf000f85f : 0xe51ff004;     /* ldr pc, [pc, #-4] */
     *(int *)(trampoline + 12) = (int)orig_fcn + ( thumb ? 9 : 8 );  /* ptr to orig fcn offset */
 
-    if( __mprotect_no_errno_set( (void *)(int)trampoline - ((int)trampoline % sysconf( _SC_PAGESIZE )),
+	void *aligned_trampoline = (void *)(int)trampoline -
+                               ((int)trampoline % sysconf( _SC_PAGESIZE ));
+						 
+	void *aligned_orig_fcn = (void *)((int)orig_fcn -
+                             ((int)orig_fcn % sysconf( _SC_PAGESIZE )));
+	
+    if( __mprotect_no_errno_set( aligned_trampoline,
                                  sysconf( _SC_PAGESIZE ),
-                                 PROT_EXEC|PROT_READ ) == 0 ) {
-        if( __mprotect_no_errno_set( (void *)((int)orig_fcn - ((int)orig_fcn % sysconf( _SC_PAGESIZE ))),
-                                     (int)orig_fcn % sysconf( _SC_PAGESIZE ) + 8,
-                                     PROT_READ|PROT_WRITE ) == 0 ) {
-            *((unsigned int*)orig_fcn) = thumb ? 0xf000f85f : 0xe51ff004;
-            *((unsigned int*)((int)orig_fcn + 4)) = (int)new_fcn;
-
-            if( __mprotect_no_errno_set( (void *)((int)orig_fcn - ((int)orig_fcn % sysconf( _SC_PAGESIZE ))),
-                                         (int)orig_fcn % sysconf( _SC_PAGESIZE ) + 8,
-                                         PROT_READ|PROT_EXEC ) == 0 ) {
-                *orig_fcn_ptr = (void*)trampoline;
-            }
-        }
+                                 PROT_EXEC|PROT_READ ) != 0 ) {
+        printf( "andhook: failed to set trampoline fcn page executable!\n" );
+        return;
     }
+
+    if( __mprotect_no_errno_set( aligned_orig_fcn,
+                                 sysconf( _SC_PAGESIZE ),
+                                 PROT_READ|PROT_WRITE ) != 0 ) {
+        printf( "andhook: failed to set original fcn page writable!\n" );
+        return;
+    }
+	
+    /* hook original fcn */
+    *((unsigned int*)orig_fcn) = thumb ? 0xf000f85f : 0xe51ff004;
+    *((unsigned int*)((int)orig_fcn + 4)) = (int)new_fcn;
+
+    if( __mprotect_no_errno_set( aligned_orig_fcn,
+                                 sysconf( _SC_PAGESIZE ),
+                                 PROT_READ|PROT_EXEC ) != 0 ) {
+        printf( "andhook: failed to set original fcn page executable!\n" );
+        return;
+    }
+
+    *orig_fcn_ptr = (void*)trampoline;
 #endif
 }
