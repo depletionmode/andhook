@@ -202,6 +202,6 @@ void and_hook(void *orig_fcn, void* new_fcn, void **orig_fcn_ptr)
         return;
     }
 
-    *orig_fcn_ptr = (void*)trampoline;
+    *orig_fcn_ptr = (void*)trampoline + thumb ? 1 : 0;
 #endif
 }
