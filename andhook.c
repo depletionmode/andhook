@@ -150,25 +150,28 @@ void and_hook(void *orig_fcn, void* new_fcn, void **orig_fcn_ptr)
             orig_fcn_ptr );
 
 #ifdef __arm__
-    unsigned char *hook = malloc( sysconf( _SC_PAGESIZE ) );
+    int thumb = orig_fcn & 1;    /* check for thumb instruction */
+	if (thumb) orig_fcn = (void *)((int)orig_fcn - 1);
+	
+    unsigned char *trampoline = malloc( sysconf( _SC_PAGESIZE ) );
 
-    __memcpy( hook, (unsigned char *)orig_fcn, 8 );    /* save 1st 8 bytes of orig fcn */
-    *(int *)(hook + 8) = 0x04f01fe5;                   /* ldr pc, [pc, #-4] */
-    *(int *)(hook + 12) = (int)orig_fcn + 8;           /* ptr to orig fcn offset */
+    __memcpy( trampoline, (unsigned char *)orig_fcn, 8 );           /* save 1st 8 bytes of orig fcn */
+    *(int *)(trampoline + 8) = thumb ? 0xf000f85f : 0xe51ff004;     /* ldr pc, [pc, #-4] */
+    *(int *)(trampoline + 12) = (int)orig_fcn + ( thumb ? 9 : 8 );  /* ptr to orig fcn offset */
 
-    if( __mprotect_no_errno_set( (void *)(int)hook - ((int)hook % sysconf( _SC_PAGESIZE )),
+    if( __mprotect_no_errno_set( (void *)(int)trampoline - ((int)trampoline % sysconf( _SC_PAGESIZE )),
                                  sysconf( _SC_PAGESIZE ),
                                  PROT_EXEC|PROT_READ ) == 0 ) {
         if( __mprotect_no_errno_set( (void *)((int)orig_fcn - ((int)orig_fcn % sysconf( _SC_PAGESIZE ))),
                                      (int)orig_fcn % sysconf( _SC_PAGESIZE ) + 8,
                                      PROT_READ|PROT_WRITE ) == 0 ) {
-            *((unsigned int*)orig_fcn) = 0x04f01fe5;
+            *((unsigned int*)orig_fcn) = thumb ? 0xf000f85f : 0xe51ff004;
             *((unsigned int*)((int)orig_fcn + 4)) = (int)new_fcn;
 
             if( __mprotect_no_errno_set( (void *)((int)orig_fcn - ((int)orig_fcn % sysconf( _SC_PAGESIZE ))),
                                          (int)orig_fcn % sysconf( _SC_PAGESIZE ) + 8,
                                          PROT_READ|PROT_EXEC ) == 0 ) {
-                *orig_fcn_ptr = (void*)hook;
+                *orig_fcn_ptr = (void*)trampoline;
             }
         }
     }
