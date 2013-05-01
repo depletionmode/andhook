@@ -110,33 +110,39 @@ void __init_framework()
             if( !strstr( dirp->d_name, ".ahp" ) ) continue;
 
             if( ( f_ahp = fopen( dirp->d_name, "r" ) ) ) {
-            if( fgets( buf, sizeof(buf), f_ahp ) ) {
-                if( memcmp( buf, "include=", 8 ) == 0 )
-                    mode = 1;     /* include */
-                else if( memcmp( buf, "exclude=", 8 ) == 0 )
-                    mode = 0;     /* exclude */
+                if( fgets( buf, sizeof(buf), f_ahp ) ) {
+                    if( memcmp( buf, "include=", 8 ) == 0 )
+                        mode = 1;     /* include */
+                    else if( memcmp( buf, "exclude=", 8 ) == 0 )
+                        mode = 0;     /* exclude */
 
-                if( mode > -1 ) {
-                    int found = 0;
-                    char *tok = strtok( buf + 8, "," );
+                    if( mode > -1 ) {
+                        int found = 0;
+                        char *tok = strtok( buf + 8, "," );
 
-                    while( tok != NULL ) {
-                        if( exec_name && strcmp( tok, exec_name ) == 0 ) {
-                            found = 1;
-                            break;
+                        while( tok != NULL ) {
+                            if( exec_name && strcmp( tok, exec_name ) == 0 ) {
+                                found = 1;
+                                break;
+                            }
+
+                            tok = strtok( NULL, "," );
                         }
 
-                        tok = strtok( NULL, "," );
+                        printf( "andhook: parsed profile: %s (found=%d, mode=%s)\n",
+		    			        dirp->d_name,
+			    		        found,
+				    	        mode ? "include" : "exclude" );
+
+                        if( found ) {
+                            if( mode /* include */ ) __load_lib(dirp->d_name);
+                        } else {
+                            if( !mode /* exclude */ ) __load_lib(dirp->d_name);
+                        }
                     }
 
-                    printf( "andhook: parsed profile: %s (found=%d, mode=%s)\n", dirp->d_name, found, mode ? "include" : "exclude" );
-
-                    if( found ) { if( mode /* include */ ) __load_lib(dirp->d_name); }
-                    else { if( !mode /* exclude */ ) __load_lib(dirp->d_name); }
+                fclose( f_ahp );
                 }
-
-            fclose( f_ahp );
-            }
             }
         }
     }
