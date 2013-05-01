@@ -161,6 +161,8 @@ void and_hook(void *orig_fcn, void* new_fcn, void **orig_fcn_ptr)
     int thumb = orig_fcn & 1;    /* check for thumb mode */
     if (thumb) orig_fcn = (void *)((int)orig_fcn - 1);
 	
+	int pagesize = sysconf( _SC_PAGESIZE );
+	
     unsigned char *trampoline = malloc( sysconf( _SC_PAGESIZE ) );
 
     __memcpy( trampoline, (unsigned char *)orig_fcn, 8 );           /* save 1st 8 bytes of orig fcn */
@@ -168,20 +170,20 @@ void and_hook(void *orig_fcn, void* new_fcn, void **orig_fcn_ptr)
     *(int *)(trampoline + 12) = (int)orig_fcn + ( thumb ? 9 : 8 );  /* ptr to orig fcn offset */
 
     void *aligned_trampoline = (void *)(int)trampoline -
-                               ((int)trampoline % sysconf( _SC_PAGESIZE ));
+                               ((int)trampoline % pagesize);
 						 
     void *aligned_orig_fcn = (void *)((int)orig_fcn -
-                             ((int)orig_fcn % sysconf( _SC_PAGESIZE )));
+                             ((int)orig_fcn % pagesize));
 	
     if( __mprotect_no_errno_set( aligned_trampoline,
-                                 sysconf( _SC_PAGESIZE ),
+                                 pagesize,
                                  PROT_EXEC|PROT_READ ) != 0 ) {
         printf( "andhook: failed to set trampoline fcn page executable!\n" );
         return;
     }
 
     if( __mprotect_no_errno_set( aligned_orig_fcn,
-                                 sysconf( _SC_PAGESIZE ),
+                                 pagesize,
                                  PROT_READ|PROT_WRITE ) != 0 ) {
         printf( "andhook: failed to set original fcn page writable!\n" );
         return;
@@ -192,7 +194,7 @@ void and_hook(void *orig_fcn, void* new_fcn, void **orig_fcn_ptr)
     *((unsigned int*)((int)orig_fcn + 4)) = (int)new_fcn;
 
     if( __mprotect_no_errno_set( aligned_orig_fcn,
-                                 sysconf( _SC_PAGESIZE ),
+                                 pagesize,
                                  PROT_READ|PROT_EXEC ) != 0 ) {
         printf( "andhook: failed to set original fcn page executable!\n" );
         return;
